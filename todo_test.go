@@ -105,6 +105,44 @@ func TestFilterAll(t *testing.T) {
 	}
 }
 
+func TestListAllIncludesArchived(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "test.jsonl")
+	archivePath := ArchivePath(path)
+
+	active := NewTodo("active task", nil, strPtr("work"), time.Now().Add(24*time.Hour), nil)
+	done := NewTodo("done task", nil, strPtr("work"), time.Now().Add(48*time.Hour), nil)
+	CompleteTodo(&done)
+
+	// Active item in main file, done item in archive
+	AppendTodo(path, active)
+	AppendTodo(archivePath, done)
+
+	// Without archive: only active item
+	main, _ := ReadTodos(path)
+	filtered := FilterTodos(main, false, nil, nil, false)
+	if len(filtered) != 1 || filtered[0].Name != "active task" {
+		t.Fatalf("expected only active task, got %d items", len(filtered))
+	}
+
+	// With archive (simulating --all): both items
+	archived, _ := ReadTodos(archivePath)
+	all := append(main, archived...)
+	filteredAll := FilterTodos(all, true, nil, nil, false)
+	if len(filteredAll) != 2 {
+		t.Fatalf("expected 2 items with --all, got %d", len(filteredAll))
+	}
+
+	// Verify both are present
+	names := map[string]bool{}
+	for _, item := range filteredAll {
+		names[item.Name] = true
+	}
+	if !names["active task"] || !names["done task"] {
+		t.Fatalf("expected both tasks, got %v", names)
+	}
+}
+
 func TestFilterByCategory(t *testing.T) {
 	cat := "work"
 	t1 := NewTodo("item1", nil, &cat, time.Now(), nil)

@@ -81,9 +81,18 @@ func listCmd() *cobra.Command {
 		Use:   "list",
 		Short: "List todos",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			todos, err := ReadTodos(resolveFile())
+			path := resolveFile()
+			todos, err := ReadTodos(path)
 			if err != nil {
 				return err
+			}
+
+			if all {
+				archived, err := ReadTodos(ArchivePath(path))
+				if err != nil {
+					return err
+				}
+				todos = append(todos, archived...)
 			}
 
 			var statusPtr *Status

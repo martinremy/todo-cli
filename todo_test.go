@@ -115,19 +115,29 @@ func TestListAllIncludesArchived(t *testing.T) {
 	CompleteTodo(&done)
 
 	// Active item in main file, done item in archive
-	AppendTodo(path, active)
-	AppendTodo(archivePath, done)
+	if err := AppendTodo(path, active); err != nil {
+		t.Fatal(err)
+	}
+	if err := AppendTodo(archivePath, done); err != nil {
+		t.Fatal(err)
+	}
 
 	// Without archive: only active item
-	main, _ := ReadTodos(path)
-	filtered := FilterTodos(main, false, nil, nil, false)
+	activeTodos, err := ReadTodos(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	filtered := FilterTodos(activeTodos, false, nil, nil, false)
 	if len(filtered) != 1 || filtered[0].Name != "active task" {
 		t.Fatalf("expected only active task, got %d items", len(filtered))
 	}
 
 	// With archive (simulating --all): both items
-	archived, _ := ReadTodos(archivePath)
-	all := append(main, archived...)
+	archived, err := ReadTodos(archivePath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	all := append(activeTodos, archived...)
 	filteredAll := FilterTodos(all, true, nil, nil, false)
 	if len(filteredAll) != 2 {
 		t.Fatalf("expected 2 items with --all, got %d", len(filteredAll))
@@ -200,7 +210,10 @@ func TestCompleteTodoWithRecurrence(t *testing.T) {
 		t.Fatal("recurring item should be todo")
 	}
 
-	nextDue, _ := time.Parse(time.RFC3339, next.Due)
+	nextDue, err := time.Parse(time.RFC3339, next.Due)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if nextDue.Before(time.Now().Add(6 * 24 * time.Hour)) {
 		t.Fatal("recurring item due date should be ~7 days from now")
 	}
@@ -316,14 +329,26 @@ func TestArchiveOnDone(t *testing.T) {
 	rec := "7d"
 	t1 := NewTodo("one-off task", nil, strPtr("work"), time.Now().Add(24*time.Hour), nil)
 	t2 := NewTodo("recurring task", nil, strPtr("work"), time.Now().Add(48*time.Hour), &rec)
-	AppendTodo(path, t1)
-	AppendTodo(path, t2)
+	if err := AppendTodo(path, t1); err != nil {
+		t.Fatal(err)
+	}
+	if err := AppendTodo(path, t2); err != nil {
+		t.Fatal(err)
+	}
 
 	// Complete the one-off task
-	todos, _ := ReadTodos(path)
-	found, _ := FindByPrefix(todos, t1.ID)
+	todos, err := ReadTodos(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	found, err := FindByPrefix(todos, t1.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
 	CompleteTodo(found)
-	AppendTodo(archivePath, *found)
+	if err := AppendTodo(archivePath, *found); err != nil {
+		t.Fatal(err)
+	}
 
 	var remaining []Todo
 	for _, item := range todos {
@@ -331,10 +356,15 @@ func TestArchiveOnDone(t *testing.T) {
 			remaining = append(remaining, item)
 		}
 	}
-	WriteTodos(path, remaining)
+	if err := WriteTodos(path, remaining); err != nil {
+		t.Fatal(err)
+	}
 
 	// Verify main file has only the recurring task
-	todos, _ = ReadTodos(path)
+	todos, err = ReadTodos(path)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if len(todos) != 1 {
 		t.Fatalf("expected 1 in main file, got %d", len(todos))
 	}
@@ -343,7 +373,10 @@ func TestArchiveOnDone(t *testing.T) {
 	}
 
 	// Verify archive has the completed item
-	archived, _ := ReadTodos(archivePath)
+	archived, err := ReadTodos(archivePath)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if len(archived) != 1 {
 		t.Fatalf("expected 1 in archive, got %d", len(archived))
 	}
@@ -352,10 +385,18 @@ func TestArchiveOnDone(t *testing.T) {
 	}
 
 	// Complete the recurring task
-	todos, _ = ReadTodos(path)
-	found, _ = FindByPrefix(todos, t2.ID)
+	todos, err = ReadTodos(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	found, err = FindByPrefix(todos, t2.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
 	next := CompleteTodo(found)
-	AppendTodo(archivePath, *found)
+	if err := AppendTodo(archivePath, *found); err != nil {
+		t.Fatal(err)
+	}
 
 	remaining = nil
 	for _, item := range todos {
@@ -366,10 +407,15 @@ func TestArchiveOnDone(t *testing.T) {
 	if next != nil {
 		remaining = append(remaining, *next)
 	}
-	WriteTodos(path, remaining)
+	if err := WriteTodos(path, remaining); err != nil {
+		t.Fatal(err)
+	}
 
 	// Main file should have only the new recurring item
-	todos, _ = ReadTodos(path)
+	todos, err = ReadTodos(path)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if len(todos) != 1 {
 		t.Fatalf("expected 1 in main after recurring done, got %d", len(todos))
 	}
@@ -381,7 +427,10 @@ func TestArchiveOnDone(t *testing.T) {
 	}
 
 	// Archive should now have 2 items
-	archived, _ = ReadTodos(archivePath)
+	archived, err = ReadTodos(archivePath)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if len(archived) != 2 {
 		t.Fatalf("expected 2 in archive, got %d", len(archived))
 	}
@@ -416,11 +465,18 @@ func TestEndToEndWorkflow(t *testing.T) {
 	t1 := NewTodo("buy groceries", strPtr("milk, eggs"), strPtr("personal"), time.Now().Add(24*time.Hour), nil)
 	rec := "1w"
 	t2 := NewTodo("weekly review", nil, strPtr("work"), time.Now().Add(48*time.Hour), &rec)
-	AppendTodo(path, t1)
-	AppendTodo(path, t2)
+	if err := AppendTodo(path, t1); err != nil {
+		t.Fatal(err)
+	}
+	if err := AppendTodo(path, t2); err != nil {
+		t.Fatal(err)
+	}
 
 	// List
-	todos, _ := ReadTodos(path)
+	todos, err := ReadTodos(path)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if len(todos) != 2 {
 		t.Fatalf("expected 2, got %d", len(todos))
 	}
@@ -436,11 +492,19 @@ func TestEndToEndWorkflow(t *testing.T) {
 			todos[i] = *found
 		}
 	}
-	WriteTodos(path, todos)
+	if err := WriteTodos(path, todos); err != nil {
+		t.Fatal(err)
+	}
 
 	// Done with recurrence
-	todos, _ = ReadTodos(path)
-	weekly, _ := FindByPrefix(todos, t2.ID)
+	todos, err = ReadTodos(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	weekly, err := FindByPrefix(todos, t2.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
 	next := CompleteTodo(weekly)
 	for i, item := range todos {
 		if item.ID == weekly.ID {
@@ -450,10 +514,15 @@ func TestEndToEndWorkflow(t *testing.T) {
 	if next != nil {
 		todos = append(todos, *next)
 	}
-	WriteTodos(path, todos)
+	if err := WriteTodos(path, todos); err != nil {
+		t.Fatal(err)
+	}
 
 	// Verify
-	todos, _ = ReadTodos(path)
+	todos, err = ReadTodos(path)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if len(todos) != 3 {
 		t.Fatalf("expected 3 after recurrence, got %d", len(todos))
 	}
@@ -475,8 +544,13 @@ func TestEndToEndWorkflow(t *testing.T) {
 			remaining = append(remaining, item)
 		}
 	}
-	WriteTodos(path, remaining)
-	todos, _ = ReadTodos(path)
+	if err := WriteTodos(path, remaining); err != nil {
+		t.Fatal(err)
+	}
+	todos, err = ReadTodos(path)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if len(todos) != 2 {
 		t.Fatalf("expected 2 after rm, got %d", len(todos))
 	}

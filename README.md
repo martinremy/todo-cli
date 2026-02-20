@@ -52,7 +52,7 @@ todo list --overdue                # only past-due items
 
 ### Update items
 
-Uses prefix match on the ID shown in `todo list`.
+Uses prefix match on the ID shown in `todo list`. You can type as few characters as needed to be unambiguous.
 
 ```bash
 todo update 01KHT3 --name "Buy organic groceries"
@@ -64,7 +64,7 @@ todo update 01KHT3 --recurrence 2w
 
 ### Mark done
 
-Completed items are moved to an archive file (e.g. `~/.todo.archive.jsonl`).
+Completed items are moved to an archive file alongside the data file — `<name>.archive.jsonl` (e.g. `~/.todo.jsonl` → `~/.todo.archive.jsonl`, `~/Dropbox/todo.jsonl` → `~/Dropbox/todo.archive.jsonl`).
 
 ```bash
 todo done 01KHT3                   # archived

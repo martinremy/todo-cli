@@ -2,11 +2,11 @@ package main
 
 import (
 	"bufio"
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
-	"text/tabwriter"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -107,26 +107,13 @@ func listCmd() *cobra.Command {
 			filtered := FilterTodos(todos, all, statusPtr, strPtr(category), overdue)
 			SortByDue(filtered)
 
-			if len(filtered) == 0 {
-				fmt.Println("No todos found.")
-				return nil
-			}
-
-			w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
-			fmt.Fprintln(w, "ID\tSTATUS\tDUE\tCATEGORY\tNAME")
+			enc := json.NewEncoder(os.Stdout)
 			for _, t := range filtered {
-				cat := "-"
-				if t.Category != nil {
-					cat = *t.Category
+				if err := enc.Encode(t); err != nil {
+					return err
 				}
-				dueStr := "-"
-				if d, err := time.Parse(time.RFC3339, t.Due); err == nil {
-					dueStr = d.Format("2006-01-02")
-				}
-				fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\n",
-					t.ID[:12], t.Status, dueStr, cat, t.Name)
 			}
-			return w.Flush()
+			return nil
 		},
 	}
 	cmd.Flags().BoolVar(&all, "all", false, "show all items including done")
@@ -148,7 +135,7 @@ func updateCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			t, err := FindByPrefix(todos, args[0])
+			t, err := FindByID(todos, args[0])
 			if err != nil {
 				return err
 			}
@@ -229,7 +216,7 @@ func doneCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			t, err := FindByPrefix(todos, args[0])
+			t, err := FindByID(todos, args[0])
 			if err != nil {
 				return err
 			}
@@ -275,7 +262,7 @@ func rmCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			t, err := FindByPrefix(todos, args[0])
+			t, err := FindByID(todos, args[0])
 			if err != nil {
 				return err
 			}

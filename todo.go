@@ -129,23 +129,15 @@ func AppendTodo(path string, t Todo) error {
 	return err
 }
 
-// FindByPrefix finds a todo whose ID starts with the given prefix.
-func FindByPrefix(todos []Todo, prefix string) (*Todo, error) {
-	prefix = strings.ToUpper(prefix)
-	var matches []Todo
-	for _, t := range todos {
-		if strings.HasPrefix(t.ID, prefix) {
-			matches = append(matches, t)
+// FindByID finds a todo with an exact ID match.
+func FindByID(todos []Todo, id string) (*Todo, error) {
+	id = strings.ToUpper(id)
+	for i := range todos {
+		if todos[i].ID == id {
+			return &todos[i], nil
 		}
 	}
-	switch len(matches) {
-	case 0:
-		return nil, fmt.Errorf("no todo found with ID prefix %q", prefix)
-	case 1:
-		return &matches[0], nil
-	default:
-		return nil, fmt.Errorf("ambiguous ID prefix %q matches %d items", prefix, len(matches))
-	}
+	return nil, fmt.Errorf("no todo found with ID %q", id)
 }
 
 // SortByDue sorts todos by due date ascending.

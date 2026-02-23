@@ -1,8 +1,11 @@
 package main
 
 import (
+	"bytes"
+	"encoding/json"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 )
@@ -62,11 +65,11 @@ func TestReadNonexistentFile(t *testing.T) {
 	}
 }
 
-func TestFindByPrefix(t *testing.T) {
+func TestFindByID(t *testing.T) {
 	t1 := NewTodo("item1", nil, nil, time.Now(), nil)
 	todos := []Todo{t1}
 
-	found, err := FindByPrefix(todos, t1.ID[:8])
+	found, err := FindByID(todos, t1.ID)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -74,9 +77,9 @@ func TestFindByPrefix(t *testing.T) {
 		t.Fatal("wrong item found")
 	}
 
-	_, err = FindByPrefix(todos, "ZZZZZZZZ")
+	_, err = FindByID(todos, "01ZZZZZZZZZZZZZZZZZZZZZZZZ")
 	if err == nil {
-		t.Fatal("expected error for non-matching prefix")
+		t.Fatal("expected error for non-matching ID")
 	}
 }
 
@@ -341,7 +344,7 @@ func TestArchiveOnDone(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	found, err := FindByPrefix(todos, t1.ID)
+	found, err := FindByID(todos, t1.ID)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -389,7 +392,7 @@ func TestArchiveOnDone(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	found, err = FindByPrefix(todos, t2.ID)
+	found, err = FindByID(todos, t2.ID)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -457,6 +460,49 @@ func TestStrPtr(t *testing.T) {
 	}
 }
 
+func TestListOutputJSONL(t *testing.T) {
+	t1 := NewTodo("first", strPtr("a description"), strPtr("work"), time.Now().Add(24*time.Hour), nil)
+	t2 := NewTodo("second", nil, nil, time.Now().Add(48*time.Hour), nil)
+	todos := []Todo{t1, t2}
+	SortByDue(todos)
+
+	var buf bytes.Buffer
+	enc := json.NewEncoder(&buf)
+	for _, td := range todos {
+		if err := enc.Encode(td); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	lines := strings.Split(strings.TrimSpace(buf.String()), "\n")
+	if len(lines) != 2 {
+		t.Fatalf("expected 2 JSONL lines, got %d", len(lines))
+	}
+
+	// Decode each line and verify full ULID is present
+	for i, line := range lines {
+		var decoded Todo
+		if err := json.Unmarshal([]byte(line), &decoded); err != nil {
+			t.Fatalf("line %d: bad JSON: %v", i, err)
+		}
+		if len(decoded.ID) != 26 {
+			t.Errorf("line %d: expected full 26-char ULID, got %d chars", i, len(decoded.ID))
+		}
+	}
+
+	// Verify first line is t1 (sooner due)
+	var first Todo
+	if err := json.Unmarshal([]byte(lines[0]), &first); err != nil {
+		t.Fatal(err)
+	}
+	if first.Name != "first" {
+		t.Errorf("expected first item 'first', got %q", first.Name)
+	}
+	if first.Description == nil || *first.Description != "a description" {
+		t.Error("expected description to be present in JSON output")
+	}
+}
+
 func TestEndToEndWorkflow(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "e2e.jsonl")
@@ -482,7 +528,7 @@ func TestEndToEndWorkflow(t *testing.T) {
 	}
 
 	// Update
-	found, err := FindByPrefix(todos, t1.ID)
+	found, err := FindByID(todos, t1.ID)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -501,7 +547,7 @@ func TestEndToEndWorkflow(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	weekly, err := FindByPrefix(todos, t2.ID)
+	weekly, err := FindByID(todos, t2.ID)
 	if err != nil {
 		t.Fatal(err)
 	}

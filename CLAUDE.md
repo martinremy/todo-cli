@@ -27,20 +27,21 @@ go test ./...
 - **Archive on done**: Completed items move from the main file to `<name>.archive.jsonl`. They are removed from the main file, not kept with a done status.
 - **Recurrence starts from completion**: `now + interval`, not `previous_due + interval`.
 - **Every item has a due date**: Default is 14 days from creation. No items without due dates.
-- **Partial ID matching**: Commands accept a prefix of the ULID. The prefix must be unambiguous.
+- **Exact ID matching**: Commands require the full 26-char ULID.
 - **Config resolution**: `--file` flag > `TODO_FILE` env var > `~/.todo.jsonl`. No config file.
 
 ## Dependencies
 
 - `github.com/spf13/cobra` — CLI framework
 - `github.com/oklog/ulid/v2` — ID generation
-- Standard library for everything else (JSON, file I/O, tabwriter, time)
+- Standard library for everything else (JSON, file I/O, time)
 
 Don't add dependencies without good reason.
 
 ## Conventions
 
 - Statuses: `todo`, `inprogress`, `waiting`, `done`
-- Dates: RFC3339 in the JSONL file, `YYYY-MM-DD` in CLI flags and display
-- IDs: Full 26-char ULIDs stored, first 12 chars displayed
+- Dates: RFC3339 in the JSONL file, `YYYY-MM-DD` in CLI flags
+- IDs: Full 26-char ULIDs stored and displayed
+- **List output is JSONL**: `todo list` outputs one JSON object per line (same format as the storage file), not a table
 - Nullable fields (`description`, `category`, `recurrence`): Use `*string` with `nil` for absent values

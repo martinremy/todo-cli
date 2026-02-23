@@ -42,6 +42,8 @@ Without `--due`, items default to 14 days from now. Recurrence intervals: `d` (d
 
 ### List items
 
+Output is JSONL — one JSON object per line, sorted by due date. Each line contains the full todo object (same schema as the storage file), including the full 26-char ULID.
+
 ```bash
 todo list                          # non-done items, sorted by due date
 todo list --all                    # include done items
@@ -52,14 +54,14 @@ todo list --overdue                # only past-due items
 
 ### Update items
 
-Uses prefix match on the ID shown in `todo list`. You can type as few characters as needed to be unambiguous.
+Takes the full 26-char ULID from `todo list` output.
 
 ```bash
-todo update 01KHT3 --name "Buy organic groceries"
-todo update 01KHT3 --status inprogress
-todo update 01KHT3 --due 2026-04-01
-todo update 01KHT3 --category personal --desc "Updated description"
-todo update 01KHT3 --recurrence 2w
+todo update 01KHT3ABCDEF01KHT3ABCDEF01 --name "Buy organic groceries"
+todo update 01KHT3ABCDEF01KHT3ABCDEF01 --status inprogress
+todo update 01KHT3ABCDEF01KHT3ABCDEF01 --due 2026-04-01
+todo update 01KHT3ABCDEF01KHT3ABCDEF01 --category personal --desc "Updated description"
+todo update 01KHT3ABCDEF01KHT3ABCDEF01 --recurrence 2w
 ```
 
 ### Mark done
@@ -67,15 +69,15 @@ todo update 01KHT3 --recurrence 2w
 Completed items are moved to an archive file alongside the data file — `<name>.archive.jsonl` (e.g. `~/.todo.jsonl` → `~/.todo.archive.jsonl`, `~/Dropbox/todo.jsonl` → `~/Dropbox/todo.archive.jsonl`).
 
 ```bash
-todo done 01KHT3                   # archived
-todo done 01KHSY                   # recurring: archived + new item created
+todo done 01KHT3ABCDEF01KHT3ABCDEF01   # archived
+todo done 01KHSYABCDEF01KHSYABCDEF01   # recurring: archived + new item created
 ```
 
 ### Remove items
 
 ```bash
-todo rm 01KHT3                     # prompts for confirmation
-todo rm 01KHT3 --force             # no confirmation
+todo rm 01KHT3ABCDEF01KHT3ABCDEF01     # prompts for confirmation
+todo rm 01KHT3ABCDEF01KHT3ABCDEF01 --force  # no confirmation
 ```
 
 ### List categories

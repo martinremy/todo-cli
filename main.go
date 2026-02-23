@@ -76,11 +76,15 @@ func addCmd() *cobra.Command {
 
 func listCmd() *cobra.Command {
 	var all, overdue bool
-	var status, category string
+	var status, category, from, to string
 	cmd := &cobra.Command{
 		Use:   "list",
 		Short: "List todos",
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if overdue && (from != "" || to != "") {
+				return fmt.Errorf("--overdue and --from/--to are mutually exclusive")
+			}
+
 			path := resolveFile()
 			todos, err := ReadTodos(path)
 			if err != nil {
@@ -104,7 +108,23 @@ func listCmd() *cobra.Command {
 				statusPtr = &s
 			}
 
-			filtered := FilterTodos(todos, all, statusPtr, strPtr(category), overdue)
+			var fromTime, toTime *time.Time
+			if from != "" {
+				t, err := time.Parse("2006-01-02", from)
+				if err != nil {
+					return fmt.Errorf("invalid --from date %q (use YYYY-MM-DD)", from)
+				}
+				fromTime = &t
+			}
+			if to != "" {
+				t, err := time.Parse("2006-01-02", to)
+				if err != nil {
+					return fmt.Errorf("invalid --to date %q (use YYYY-MM-DD)", to)
+				}
+				toTime = &t
+			}
+
+			filtered := FilterTodos(todos, all, statusPtr, strPtr(category), overdue, fromTime, toTime)
 			SortByDue(filtered)
 
 			enc := json.NewEncoder(os.Stdout)
@@ -120,6 +140,8 @@ func listCmd() *cobra.Command {
 	cmd.Flags().BoolVar(&overdue, "overdue", false, "show only overdue items")
 	cmd.Flags().StringVar(&status, "status", "", "filter by status")
 	cmd.Flags().StringVar(&category, "category", "", "filter by category")
+	cmd.Flags().StringVar(&from, "from", "", "show items due on or after this date (YYYY-MM-DD)")
+	cmd.Flags().StringVar(&to, "to", "", "show items due before this date (YYYY-MM-DD)")
 	return cmd
 }
 

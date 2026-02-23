@@ -88,7 +88,7 @@ func TestFilterExcludesDone(t *testing.T) {
 	t2 := NewTodo("finished", nil, nil, time.Now(), nil)
 	t2.Status = StatusDone
 
-	filtered := FilterTodos([]Todo{t1, t2}, false, nil, nil, false)
+	filtered := FilterTodos([]Todo{t1, t2}, false, nil, nil, false, nil, nil)
 	if len(filtered) != 1 {
 		t.Fatalf("expected 1 non-done item, got %d", len(filtered))
 	}
@@ -102,7 +102,7 @@ func TestFilterAll(t *testing.T) {
 	t2 := NewTodo("finished", nil, nil, time.Now(), nil)
 	t2.Status = StatusDone
 
-	filtered := FilterTodos([]Todo{t1, t2}, true, nil, nil, false)
+	filtered := FilterTodos([]Todo{t1, t2}, true, nil, nil, false, nil, nil)
 	if len(filtered) != 2 {
 		t.Fatalf("expected 2 items with --all, got %d", len(filtered))
 	}
@@ -130,7 +130,7 @@ func TestListAllIncludesArchived(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	filtered := FilterTodos(activeTodos, false, nil, nil, false)
+	filtered := FilterTodos(activeTodos, false, nil, nil, false, nil, nil)
 	if len(filtered) != 1 || filtered[0].Name != "active task" {
 		t.Fatalf("expected only active task, got %d items", len(filtered))
 	}
@@ -141,7 +141,7 @@ func TestListAllIncludesArchived(t *testing.T) {
 		t.Fatal(err)
 	}
 	all := append(activeTodos, archived...)
-	filteredAll := FilterTodos(all, true, nil, nil, false)
+	filteredAll := FilterTodos(all, true, nil, nil, false, nil, nil)
 	if len(filteredAll) != 2 {
 		t.Fatalf("expected 2 items with --all, got %d", len(filteredAll))
 	}
@@ -161,7 +161,7 @@ func TestFilterByCategory(t *testing.T) {
 	t1 := NewTodo("item1", nil, &cat, time.Now(), nil)
 	t2 := NewTodo("item2", nil, nil, time.Now(), nil)
 
-	filtered := FilterTodos([]Todo{t1, t2}, false, nil, &cat, false)
+	filtered := FilterTodos([]Todo{t1, t2}, false, nil, &cat, false, nil, nil)
 	if len(filtered) != 1 || filtered[0].Name != "item1" {
 		t.Fatal("category filter failed")
 	}
@@ -173,7 +173,7 @@ func TestFilterOverdue(t *testing.T) {
 	t1 := NewTodo("overdue", nil, nil, past, nil)
 	t2 := NewTodo("upcoming", nil, nil, future, nil)
 
-	filtered := FilterTodos([]Todo{t1, t2}, false, nil, nil, true)
+	filtered := FilterTodos([]Todo{t1, t2}, false, nil, nil, true, nil, nil)
 	if len(filtered) != 1 || filtered[0].Name != "overdue" {
 		t.Fatal("overdue filter failed")
 	}
@@ -500,6 +500,69 @@ func TestListOutputJSONL(t *testing.T) {
 	}
 	if first.Description == nil || *first.Description != "a description" {
 		t.Error("expected description to be present in JSON output")
+	}
+}
+
+func TestFilterDateRange(t *testing.T) {
+	d1 := time.Date(2026, 2, 10, 0, 0, 0, 0, time.UTC)
+	d2 := time.Date(2026, 2, 20, 0, 0, 0, 0, time.UTC)
+	d3 := time.Date(2026, 3, 5, 0, 0, 0, 0, time.UTC)
+
+	t1 := NewTodo("early", nil, nil, d1, nil)
+	t2 := NewTodo("middle", nil, nil, d2, nil)
+	t3 := NewTodo("late", nil, nil, d3, nil)
+	todos := []Todo{t1, t2, t3}
+
+	// --from only: items due on or after 2026-02-15
+	from := time.Date(2026, 2, 15, 0, 0, 0, 0, time.UTC)
+	filtered := FilterTodos(todos, false, nil, nil, false, &from, nil)
+	if len(filtered) != 2 {
+		t.Fatalf("--from: expected 2 items, got %d", len(filtered))
+	}
+	if filtered[0].Name != "middle" || filtered[1].Name != "late" {
+		t.Fatalf("--from: wrong items: %q, %q", filtered[0].Name, filtered[1].Name)
+	}
+
+	// --to only: items due before 2026-02-25
+	to := time.Date(2026, 2, 25, 0, 0, 0, 0, time.UTC)
+	filtered = FilterTodos(todos, false, nil, nil, false, nil, &to)
+	if len(filtered) != 2 {
+		t.Fatalf("--to: expected 2 items, got %d", len(filtered))
+	}
+	if filtered[0].Name != "early" || filtered[1].Name != "middle" {
+		t.Fatalf("--to: wrong items: %q, %q", filtered[0].Name, filtered[1].Name)
+	}
+
+	// --from and --to: items due in [2026-02-15, 2026-02-25)
+	filtered = FilterTodos(todos, false, nil, nil, false, &from, &to)
+	if len(filtered) != 1 {
+		t.Fatalf("--from --to: expected 1 item, got %d", len(filtered))
+	}
+	if filtered[0].Name != "middle" {
+		t.Fatalf("--from --to: expected 'middle', got %q", filtered[0].Name)
+	}
+
+	// --from at exact due date boundary (inclusive)
+	exactFrom := time.Date(2026, 2, 20, 0, 0, 0, 0, time.UTC)
+	filtered = FilterTodos(todos, false, nil, nil, false, &exactFrom, nil)
+	if len(filtered) != 2 {
+		t.Fatalf("--from exact: expected 2 items, got %d", len(filtered))
+	}
+
+	// --to at exact due date boundary (exclusive)
+	exactTo := time.Date(2026, 2, 20, 0, 0, 0, 0, time.UTC)
+	filtered = FilterTodos(todos, false, nil, nil, false, nil, &exactTo)
+	if len(filtered) != 1 {
+		t.Fatalf("--to exact: expected 1 item, got %d", len(filtered))
+	}
+	if filtered[0].Name != "early" {
+		t.Fatalf("--to exact: expected 'early', got %q", filtered[0].Name)
+	}
+
+	// No range: all items returned
+	filtered = FilterTodos(todos, false, nil, nil, false, nil, nil)
+	if len(filtered) != 3 {
+		t.Fatalf("no range: expected 3 items, got %d", len(filtered))
 	}
 }
 

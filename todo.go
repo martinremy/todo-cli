@@ -148,7 +148,7 @@ func SortByDue(todos []Todo) {
 }
 
 // FilterTodos returns a filtered list based on criteria.
-func FilterTodos(todos []Todo, showAll bool, status *Status, category *string, overdue bool) []Todo {
+func FilterTodos(todos []Todo, showAll bool, status *Status, category *string, overdue bool, from, to *time.Time) []Todo {
 	now := time.Now().UTC()
 	var result []Todo
 	for _, t := range todos {
@@ -164,6 +164,18 @@ func FilterTodos(todos []Todo, showAll bool, status *Status, category *string, o
 		if overdue {
 			due, err := time.Parse(time.RFC3339, t.Due)
 			if err != nil || !due.Before(now) || t.Status == StatusDone {
+				continue
+			}
+		}
+		if from != nil || to != nil {
+			due, err := time.Parse(time.RFC3339, t.Due)
+			if err != nil {
+				continue
+			}
+			if from != nil && due.Before(*from) {
+				continue
+			}
+			if to != nil && !due.Before(*to) {
 				continue
 			}
 		}

@@ -124,6 +124,10 @@ func listCmd() *cobra.Command {
 				toTime = &t
 			}
 
+			if fromTime != nil && toTime != nil && !fromTime.Before(*toTime) {
+				return fmt.Errorf("invalid date range: --from must be before --to (YYYY-MM-DD)")
+			}
+
 			filtered := FilterTodos(todos, all, statusPtr, strPtr(category), overdue, fromTime, toTime)
 			SortByDue(filtered)
 

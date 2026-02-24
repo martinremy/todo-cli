@@ -169,7 +169,7 @@ func FilterTodos(todos []Todo, showAll bool, status *Status, category *string, o
 		if from != nil && t.Due < *from {
 			continue
 		}
-		if to != nil && t.Due >= *to {
+		if to != nil && t.Due > *to {
 			continue
 		}
 		result = append(result, t)

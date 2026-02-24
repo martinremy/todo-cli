@@ -533,7 +533,7 @@ func TestFilterDateRange(t *testing.T) {
 		t.Fatalf("--to: wrong items: %q, %q", filtered[0].Name, filtered[1].Name)
 	}
 
-	// --from and --to: items due in [2026-02-15, 2026-02-25)
+	// --from and --to: items due in [2026-02-15, 2026-02-25]
 	filtered = FilterTodos(todos, false, nil, nil, false, &from, &to)
 	if len(filtered) != 1 {
 		t.Fatalf("--from --to: expected 1 item, got %d", len(filtered))
@@ -549,14 +549,14 @@ func TestFilterDateRange(t *testing.T) {
 		t.Fatalf("--from exact: expected 2 items, got %d", len(filtered))
 	}
 
-	// --to at exact due date boundary (exclusive)
+	// --to at exact due date boundary (inclusive)
 	exactTo := "2026-02-20"
 	filtered = FilterTodos(todos, false, nil, nil, false, nil, &exactTo)
-	if len(filtered) != 1 {
-		t.Fatalf("--to exact: expected 1 item, got %d", len(filtered))
+	if len(filtered) != 2 {
+		t.Fatalf("--to exact: expected 2 items, got %d", len(filtered))
 	}
-	if filtered[0].Name != "early" {
-		t.Fatalf("--to exact: expected 'early', got %q", filtered[0].Name)
+	if filtered[0].Name != "early" || filtered[1].Name != "middle" {
+		t.Fatalf("--to exact: expected 'early' and 'middle', got %q and %q", filtered[0].Name, filtered[1].Name)
 	}
 
 	// No range: all items returned

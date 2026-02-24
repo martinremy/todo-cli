@@ -49,7 +49,7 @@ type Todo struct {
 	Recurrence  *string `json:"recurrence"`
 }
 
-func NewTodo(name string, desc, category *string, due time.Time, recurrence *string) Todo {
+func NewTodo(name string, desc, category *string, due string, recurrence *string) Todo {
 	now := time.Now().UTC().Format(time.RFC3339)
 	entropy := rand.New(rand.NewSource(time.Now().UnixNano()))
 	id := ulid.MustNew(ulid.Timestamp(time.Now()), entropy).String()
@@ -61,7 +61,7 @@ func NewTodo(name string, desc, category *string, due time.Time, recurrence *str
 		Status:      StatusTodo,
 		Created:     now,
 		Updated:     now,
-		Due:         due.UTC().Format(time.RFC3339),
+		Due:         due,
 		Recurrence:  recurrence,
 	}
 }
@@ -148,8 +148,8 @@ func SortByDue(todos []Todo) {
 }
 
 // FilterTodos returns a filtered list based on criteria.
-func FilterTodos(todos []Todo, showAll bool, status *Status, category *string, overdue bool, from, to *time.Time) []Todo {
-	now := time.Now().UTC()
+func FilterTodos(todos []Todo, showAll bool, status *Status, category *string, overdue bool, from, to *string) []Todo {
+	today := time.Now().UTC().Format("2006-01-02")
 	var result []Todo
 	for _, t := range todos {
 		if !showAll && t.Status == StatusDone {
@@ -162,22 +162,15 @@ func FilterTodos(todos []Todo, showAll bool, status *Status, category *string, o
 			continue
 		}
 		if overdue {
-			due, err := time.Parse(time.RFC3339, t.Due)
-			if err != nil || !due.Before(now) || t.Status == StatusDone {
+			if t.Due >= today || t.Status == StatusDone {
 				continue
 			}
 		}
-		if from != nil || to != nil {
-			due, err := time.Parse(time.RFC3339, t.Due)
-			if err != nil {
-				continue
-			}
-			if from != nil && due.Before(*from) {
-				continue
-			}
-			if to != nil && !due.Before(*to) {
-				continue
-			}
+		if from != nil && t.Due < *from {
+			continue
+		}
+		if to != nil && t.Due >= *to {
+			continue
 		}
 		result = append(result, t)
 	}
@@ -237,7 +230,7 @@ func CompleteTodo(t *Todo) *Todo {
 		return nil
 	}
 
-	newDue := now.Add(dur)
+	newDue := now.Add(dur).UTC().Format("2006-01-02")
 	next := NewTodo(t.Name, t.Description, t.Category, newDue, t.Recurrence)
 	return &next
 }

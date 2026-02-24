@@ -48,18 +48,17 @@ func addCmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			name := strings.Join(args, " ")
 
-			var dueTime time.Time
+			var dueDate string
 			if due != "" {
-				parsed, err := time.Parse("2006-01-02", due)
-				if err != nil {
+				if _, err := time.Parse("2006-01-02", due); err != nil {
 					return fmt.Errorf("bad --due format (use YYYY-MM-DD): %w", err)
 				}
-				dueTime = parsed
+				dueDate = due
 			} else {
-				dueTime = time.Now().UTC().AddDate(0, 0, 14)
+				dueDate = time.Now().UTC().AddDate(0, 0, 14).Format("2006-01-02")
 			}
 
-			t := NewTodo(name, strPtr(desc), strPtr(category), dueTime, strPtr(recurrence))
+			t := NewTodo(name, strPtr(desc), strPtr(category), dueDate, strPtr(recurrence))
 			if err := AppendTodo(resolveFile(), t); err != nil {
 				return err
 			}
@@ -108,27 +107,25 @@ func listCmd() *cobra.Command {
 				statusPtr = &s
 			}
 
-			var fromTime, toTime *time.Time
+			var fromPtr, toPtr *string
 			if from != "" {
-				t, err := time.Parse("2006-01-02", from)
-				if err != nil {
+				if _, err := time.Parse("2006-01-02", from); err != nil {
 					return fmt.Errorf("invalid --from date %q (use YYYY-MM-DD)", from)
 				}
-				fromTime = &t
+				fromPtr = &from
 			}
 			if to != "" {
-				t, err := time.Parse("2006-01-02", to)
-				if err != nil {
+				if _, err := time.Parse("2006-01-02", to); err != nil {
 					return fmt.Errorf("invalid --to date %q (use YYYY-MM-DD)", to)
 				}
-				toTime = &t
+				toPtr = &to
 			}
 
-			if fromTime != nil && toTime != nil && !fromTime.Before(*toTime) {
+			if fromPtr != nil && toPtr != nil && *fromPtr >= *toPtr {
 				return fmt.Errorf("invalid date range: --from must be before --to (YYYY-MM-DD)")
 			}
 
-			filtered := FilterTodos(todos, all, statusPtr, strPtr(category), overdue, fromTime, toTime)
+			filtered := FilterTodos(todos, all, statusPtr, strPtr(category), overdue, fromPtr, toPtr)
 			SortByDue(filtered)
 
 			enc := json.NewEncoder(os.Stdout)
@@ -190,11 +187,10 @@ func updateCmd() *cobra.Command {
 				changed = true
 			}
 			if cmd.Flags().Changed("due") {
-				parsed, err := time.Parse("2006-01-02", due)
-				if err != nil {
+				if _, err := time.Parse("2006-01-02", due); err != nil {
 					return fmt.Errorf("bad --due format (use YYYY-MM-DD): %w", err)
 				}
-				t.Due = parsed.UTC().Format(time.RFC3339)
+				t.Due = due
 				changed = true
 			}
 			if cmd.Flags().Changed("recurrence") {
@@ -264,7 +260,7 @@ func doneCmd() *cobra.Command {
 			if next != nil {
 				remaining = append(remaining, *next)
 				fmt.Printf("Recurring: created %s %s (due %s)\n",
-					next.ID[:12], next.Name, next.Due[:10])
+					next.ID[:12], next.Name, next.Due)
 			}
 
 			if err := WriteTodos(path, remaining); err != nil {

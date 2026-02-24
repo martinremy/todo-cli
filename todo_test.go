@@ -11,7 +11,8 @@ import (
 )
 
 func TestNewTodoDefaults(t *testing.T) {
-	todo := NewTodo("test item", nil, nil, time.Now().Add(14*24*time.Hour), nil)
+	due := time.Now().Add(14 * 24 * time.Hour).Format("2006-01-02")
+	todo := NewTodo("test item", nil, nil, due, nil)
 	if todo.Name != "test item" {
 		t.Fatalf("expected name 'test item', got %q", todo.Name)
 	}
@@ -24,14 +25,17 @@ func TestNewTodoDefaults(t *testing.T) {
 	if len(todo.ID) != 26 {
 		t.Fatalf("expected 26-char ULID, got %d chars", len(todo.ID))
 	}
+	if todo.Due != due {
+		t.Fatalf("expected due %q, got %q", due, todo.Due)
+	}
 }
 
 func TestReadWriteRoundTrip(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "test.jsonl")
 
-	t1 := NewTodo("first", strPtr("desc1"), strPtr("work"), time.Now(), nil)
-	t2 := NewTodo("second", nil, nil, time.Now(), nil)
+	t1 := NewTodo("first", strPtr("desc1"), strPtr("work"), "2026-03-01", nil)
+	t2 := NewTodo("second", nil, nil, "2026-03-02", nil)
 
 	if err := AppendTodo(path, t1); err != nil {
 		t.Fatal(err)
@@ -66,7 +70,7 @@ func TestReadNonexistentFile(t *testing.T) {
 }
 
 func TestFindByID(t *testing.T) {
-	t1 := NewTodo("item1", nil, nil, time.Now(), nil)
+	t1 := NewTodo("item1", nil, nil, "2026-03-01", nil)
 	todos := []Todo{t1}
 
 	found, err := FindByID(todos, t1.ID)
@@ -84,8 +88,8 @@ func TestFindByID(t *testing.T) {
 }
 
 func TestFilterExcludesDone(t *testing.T) {
-	t1 := NewTodo("active", nil, nil, time.Now(), nil)
-	t2 := NewTodo("finished", nil, nil, time.Now(), nil)
+	t1 := NewTodo("active", nil, nil, "2026-03-01", nil)
+	t2 := NewTodo("finished", nil, nil, "2026-03-01", nil)
 	t2.Status = StatusDone
 
 	filtered := FilterTodos([]Todo{t1, t2}, false, nil, nil, false, nil, nil)
@@ -98,8 +102,8 @@ func TestFilterExcludesDone(t *testing.T) {
 }
 
 func TestFilterAll(t *testing.T) {
-	t1 := NewTodo("active", nil, nil, time.Now(), nil)
-	t2 := NewTodo("finished", nil, nil, time.Now(), nil)
+	t1 := NewTodo("active", nil, nil, "2026-03-01", nil)
+	t2 := NewTodo("finished", nil, nil, "2026-03-01", nil)
 	t2.Status = StatusDone
 
 	filtered := FilterTodos([]Todo{t1, t2}, true, nil, nil, false, nil, nil)
@@ -113,8 +117,8 @@ func TestListAllIncludesArchived(t *testing.T) {
 	path := filepath.Join(dir, "test.jsonl")
 	archivePath := ArchivePath(path)
 
-	active := NewTodo("active task", nil, strPtr("work"), time.Now().Add(24*time.Hour), nil)
-	done := NewTodo("done task", nil, strPtr("work"), time.Now().Add(48*time.Hour), nil)
+	active := NewTodo("active task", nil, strPtr("work"), "2026-03-01", nil)
+	done := NewTodo("done task", nil, strPtr("work"), "2026-03-02", nil)
 	CompleteTodo(&done)
 
 	// Active item in main file, done item in archive
@@ -158,8 +162,8 @@ func TestListAllIncludesArchived(t *testing.T) {
 
 func TestFilterByCategory(t *testing.T) {
 	cat := "work"
-	t1 := NewTodo("item1", nil, &cat, time.Now(), nil)
-	t2 := NewTodo("item2", nil, nil, time.Now(), nil)
+	t1 := NewTodo("item1", nil, &cat, "2026-03-01", nil)
+	t2 := NewTodo("item2", nil, nil, "2026-03-01", nil)
 
 	filtered := FilterTodos([]Todo{t1, t2}, false, nil, &cat, false, nil, nil)
 	if len(filtered) != 1 || filtered[0].Name != "item1" {
@@ -168,8 +172,8 @@ func TestFilterByCategory(t *testing.T) {
 }
 
 func TestFilterOverdue(t *testing.T) {
-	past := time.Now().Add(-48 * time.Hour)
-	future := time.Now().Add(48 * time.Hour)
+	past := time.Now().Add(-48 * time.Hour).Format("2006-01-02")
+	future := time.Now().Add(48 * time.Hour).Format("2006-01-02")
 	t1 := NewTodo("overdue", nil, nil, past, nil)
 	t2 := NewTodo("upcoming", nil, nil, future, nil)
 
@@ -180,7 +184,7 @@ func TestFilterOverdue(t *testing.T) {
 }
 
 func TestCompleteTodoNoRecurrence(t *testing.T) {
-	todo := NewTodo("one-off", nil, nil, time.Now(), nil)
+	todo := NewTodo("one-off", nil, nil, "2026-03-01", nil)
 	next := CompleteTodo(&todo)
 	if todo.Status != StatusDone {
 		t.Fatal("expected done status")
@@ -192,7 +196,7 @@ func TestCompleteTodoNoRecurrence(t *testing.T) {
 
 func TestCompleteTodoWithRecurrence(t *testing.T) {
 	rec := "7d"
-	todo := NewTodo("weekly task", nil, strPtr("chores"), time.Now(), &rec)
+	todo := NewTodo("weekly task", nil, strPtr("chores"), "2026-03-01", &rec)
 	next := CompleteTodo(&todo)
 	if todo.Status != StatusDone {
 		t.Fatal("expected done status")
@@ -213,7 +217,7 @@ func TestCompleteTodoWithRecurrence(t *testing.T) {
 		t.Fatal("recurring item should be todo")
 	}
 
-	nextDue, err := time.Parse(time.RFC3339, next.Due)
+	nextDue, err := time.Parse("2006-01-02", next.Due)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -260,10 +264,10 @@ func TestCategories(t *testing.T) {
 	c1 := "work"
 	c2 := "personal"
 	todos := []Todo{
-		NewTodo("a", nil, &c1, time.Now(), nil),
-		NewTodo("b", nil, &c2, time.Now(), nil),
-		NewTodo("c", nil, &c1, time.Now(), nil),
-		NewTodo("d", nil, nil, time.Now(), nil),
+		NewTodo("a", nil, &c1, "2026-03-01", nil),
+		NewTodo("b", nil, &c2, "2026-03-01", nil),
+		NewTodo("c", nil, &c1, "2026-03-01", nil),
+		NewTodo("d", nil, nil, "2026-03-01", nil),
 	}
 	cats := Categories(todos)
 	if len(cats) != 2 {
@@ -275,8 +279,8 @@ func TestCategories(t *testing.T) {
 }
 
 func TestSortByDue(t *testing.T) {
-	t1 := NewTodo("later", nil, nil, time.Now().Add(48*time.Hour), nil)
-	t2 := NewTodo("sooner", nil, nil, time.Now().Add(24*time.Hour), nil)
+	t1 := NewTodo("later", nil, nil, "2026-03-03", nil)
+	t2 := NewTodo("sooner", nil, nil, "2026-03-02", nil)
 	todos := []Todo{t1, t2}
 	SortByDue(todos)
 	if todos[0].Name != "sooner" {
@@ -289,8 +293,8 @@ func TestWriteTodosRewrite(t *testing.T) {
 	path := filepath.Join(dir, "test.jsonl")
 
 	todos := []Todo{
-		NewTodo("a", nil, nil, time.Now(), nil),
-		NewTodo("b", nil, nil, time.Now(), nil),
+		NewTodo("a", nil, nil, "2026-03-01", nil),
+		NewTodo("b", nil, nil, "2026-03-02", nil),
 	}
 	if err := WriteTodos(path, todos); err != nil {
 		t.Fatal(err)
@@ -330,8 +334,8 @@ func TestArchiveOnDone(t *testing.T) {
 	archivePath := ArchivePath(path)
 
 	rec := "7d"
-	t1 := NewTodo("one-off task", nil, strPtr("work"), time.Now().Add(24*time.Hour), nil)
-	t2 := NewTodo("recurring task", nil, strPtr("work"), time.Now().Add(48*time.Hour), &rec)
+	t1 := NewTodo("one-off task", nil, strPtr("work"), "2026-03-01", nil)
+	t2 := NewTodo("recurring task", nil, strPtr("work"), "2026-03-02", &rec)
 	if err := AppendTodo(path, t1); err != nil {
 		t.Fatal(err)
 	}
@@ -461,8 +465,8 @@ func TestStrPtr(t *testing.T) {
 }
 
 func TestListOutputJSONL(t *testing.T) {
-	t1 := NewTodo("first", strPtr("a description"), strPtr("work"), time.Now().Add(24*time.Hour), nil)
-	t2 := NewTodo("second", nil, nil, time.Now().Add(48*time.Hour), nil)
+	t1 := NewTodo("first", strPtr("a description"), strPtr("work"), "2026-03-01", nil)
+	t2 := NewTodo("second", nil, nil, "2026-03-02", nil)
 	todos := []Todo{t1, t2}
 	SortByDue(todos)
 
@@ -504,17 +508,13 @@ func TestListOutputJSONL(t *testing.T) {
 }
 
 func TestFilterDateRange(t *testing.T) {
-	d1 := time.Date(2026, 2, 10, 0, 0, 0, 0, time.UTC)
-	d2 := time.Date(2026, 2, 20, 0, 0, 0, 0, time.UTC)
-	d3 := time.Date(2026, 3, 5, 0, 0, 0, 0, time.UTC)
-
-	t1 := NewTodo("early", nil, nil, d1, nil)
-	t2 := NewTodo("middle", nil, nil, d2, nil)
-	t3 := NewTodo("late", nil, nil, d3, nil)
+	t1 := NewTodo("early", nil, nil, "2026-02-10", nil)
+	t2 := NewTodo("middle", nil, nil, "2026-02-20", nil)
+	t3 := NewTodo("late", nil, nil, "2026-03-05", nil)
 	todos := []Todo{t1, t2, t3}
 
 	// --from only: items due on or after 2026-02-15
-	from := time.Date(2026, 2, 15, 0, 0, 0, 0, time.UTC)
+	from := "2026-02-15"
 	filtered := FilterTodos(todos, false, nil, nil, false, &from, nil)
 	if len(filtered) != 2 {
 		t.Fatalf("--from: expected 2 items, got %d", len(filtered))
@@ -524,7 +524,7 @@ func TestFilterDateRange(t *testing.T) {
 	}
 
 	// --to only: items due before 2026-02-25
-	to := time.Date(2026, 2, 25, 0, 0, 0, 0, time.UTC)
+	to := "2026-02-25"
 	filtered = FilterTodos(todos, false, nil, nil, false, nil, &to)
 	if len(filtered) != 2 {
 		t.Fatalf("--to: expected 2 items, got %d", len(filtered))
@@ -543,14 +543,14 @@ func TestFilterDateRange(t *testing.T) {
 	}
 
 	// --from at exact due date boundary (inclusive)
-	exactFrom := time.Date(2026, 2, 20, 0, 0, 0, 0, time.UTC)
+	exactFrom := "2026-02-20"
 	filtered = FilterTodos(todos, false, nil, nil, false, &exactFrom, nil)
 	if len(filtered) != 2 {
 		t.Fatalf("--from exact: expected 2 items, got %d", len(filtered))
 	}
 
 	// --to at exact due date boundary (exclusive)
-	exactTo := time.Date(2026, 2, 20, 0, 0, 0, 0, time.UTC)
+	exactTo := "2026-02-20"
 	filtered = FilterTodos(todos, false, nil, nil, false, nil, &exactTo)
 	if len(filtered) != 1 {
 		t.Fatalf("--to exact: expected 1 item, got %d", len(filtered))
@@ -566,14 +566,34 @@ func TestFilterDateRange(t *testing.T) {
 	}
 }
 
+func TestDueDateIsDateOnly(t *testing.T) {
+	todo := NewTodo("test", nil, nil, "2026-03-15", nil)
+	if todo.Due != "2026-03-15" {
+		t.Fatalf("expected date-only due %q, got %q", "2026-03-15", todo.Due)
+	}
+
+	// Verify it round-trips through JSON without a time component
+	b, err := json.Marshal(todo)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var decoded Todo
+	if err := json.Unmarshal(b, &decoded); err != nil {
+		t.Fatal(err)
+	}
+	if decoded.Due != "2026-03-15" {
+		t.Fatalf("expected date-only after round-trip, got %q", decoded.Due)
+	}
+}
+
 func TestEndToEndWorkflow(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "e2e.jsonl")
 
 	// Add
-	t1 := NewTodo("buy groceries", strPtr("milk, eggs"), strPtr("personal"), time.Now().Add(24*time.Hour), nil)
+	t1 := NewTodo("buy groceries", strPtr("milk, eggs"), strPtr("personal"), "2026-03-01", nil)
 	rec := "1w"
-	t2 := NewTodo("weekly review", nil, strPtr("work"), time.Now().Add(48*time.Hour), &rec)
+	t2 := NewTodo("weekly review", nil, strPtr("work"), "2026-03-02", &rec)
 	if err := AppendTodo(path, t1); err != nil {
 		t.Fatal(err)
 	}

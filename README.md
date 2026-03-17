@@ -8,7 +8,7 @@ The data file is a single `.jsonl` file — one JSON object per line. Point it a
 
 ```bash
 go build -o todo .
-mv todo ~/go/bin/
+mv todo ~/.local/bin/.
 ```
 
 This moves the built binary to `~/go/bin`, which should already be in your `$PATH`.
